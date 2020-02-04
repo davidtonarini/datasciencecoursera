@@ -1,0 +1,43 @@
+---
+title: "Data products - week 3 assignment"
+author: "David Tonarini"
+date: "05/02/2020"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Intro slide
+```{r prepare, echo = FALSE}
+library(ggplot2, warn.conflicts = FALSE)
+library(plotly, warn.conflicts = FALSE)
+
+mtcars$am[which(mtcars$am == 0)] <- 'Manual'
+mtcars$am[which(mtcars$am == 1)] <- 'Automatic'
+mtcars$am <- as.factor(mtcars$am)
+
+p <- plot_ly(mtcars, x = ~wt, y = ~hp, z = ~mpg, color = ~am, colors = c('#BF382A', '#0C4B8E')) %>%
+  add_markers() %>%
+  layout(scene = list(xaxis = list(title = 'Weight'),
+                     yaxis = list(title = 'Gross horsepower'),
+                     zaxis = list(title = 'Miles (US) / gallon')))
+
+
+```
+This sample presentation uses the PlotLy package to display an awesome 3d plot.
+It displays the consumptions of a car in relationship to it's weight, gross horsepower, and transmission type (automatic or manual).
+The mtcars dataset is used.
+Use your keyboard arrows to move to the next slide
+
+## 3D Plot
+
+```{r cars, echo = FALSE}
+p
+```
+
+
+## Thank you for watching
+3D plots are awesome.
+This presentation is completed. 

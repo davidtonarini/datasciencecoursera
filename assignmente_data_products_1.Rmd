@@ -1,0 +1,52 @@
+---
+title: "Data products assignment - week 2"
+author: "David Tonarini"
+date: "04/02/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+## Interactive Map
+
+Creates an interative map through R and Leaflet, assigning markers for the following important places for the lifetime of the author.
+
+```{r prepare, echo=FALSE}
+library(leaflet)
+
+# prepare dataframe
+N <- 4  #number of entries
+DF <- data.frame(num=rep(NA, N), num=rep(NA, N), txt=rep("", N),  #latitude, longitude, name
+                 stringsAsFactors=FALSE)
+#fill in data 
+DF[1, ] <- list(27.7, 60.58, "My home town")
+DF[2, ] <- list(15.86, 50.21, "My birth town")
+DF[3, ] <- list(15.755, 50.155, "Grandma's place")
+DF[4, ] <- list(10.459, 43.395, "Where I grew up")
+colnames(DF) <- c("longitude", "latitude", "label")
+DF
+
+```
+
+
+The map uses marker clustering to display the appropriate number of points depending on the zoom. A collection of different markers is used
+
+```{r map, echo=FALSE}
+library(leaflet)
+
+
+my_map2 <- leaflet() %>%
+  addTiles() %>%  # use the default base map which is OpenStreetMap tiles
+  addMarkers(lat= as.numeric(DF$latitude), lng= as.numeric(DF$longitude),
+    popup= DF$label, clusterOptions = markerClusterOptions()) %>%
+    setView(lng = mean(DF$longitude), lat = mean(DF$latitude), zoom = 02) %>%
+    addProviderTiles("Stamen.TonerLite",
+                                group = "Toner", 
+                                options = providerTileOptions(minZoom = 1, maxZoom = 4))
+my_map2
+
+
+```

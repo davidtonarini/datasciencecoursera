@@ -11,13 +11,13 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Executive summary
 
-The effect of transmission on consumption, in Miles(US) / gallon, is analyzed. Data analysis indicates that cars with automatic transmission tend to have lower consumptions, reaching more Miles per gallon compared to cars with manual transmission.
+The effect of transmission on consumption, in Miles(US) / gallon, is analyzed. Data analysis indicates that cars with manual transmission tend to better fuel efficiency, reaching more Miles per gallon compared to cars with automatic transmission. Other carachterisitcs of the cars however have a greater influence. In particular, we found that the benefit of a manual transmission is only present beyond a certain weight. As such, other carachteristics beyond transmission type are necessary to properly predict fuel efficiency.
 
 
 ## Exploratory analysis
 ```{r cars, echo=FALSE}
-auto_cars <- mtcars[mtcars$am == 1, ]
-man_cars <- mtcars[mtcars$am == 0, ]
+man_cars <- mtcars[mtcars$am == 1, ]
+auto_cars <- mtcars[mtcars$am == 0, ]
 n_auto <- dim(auto_cars)[1]
 n_manual <- dim(man_cars)[1]
 n_total = n_auto + n_manual 
@@ -26,7 +26,7 @@ The analysis is done on the dataset *mtcars*, extracted from the 1974 Motor Tren
 The dataset contains information about `r n_auto` models with automatic transmission, and `r n_manual` models with manual transmission, for a total of `r n_total` models.
 To understand the effect of transmission on consumption, we plotted the datapoints for the mpg of the two groups (Figure 1) and a boxplot with the quartile of the two groups (Figure 2), which suggests an effect of the car's transmission type on consumption.
 For cars with automatic transmission, the mean consumption is `r round(mean(auto_cars[ , 1]),2)` mpg ± `r round(sd(auto_cars[ , 1]),2)`
-For cars with automatic transmission, the mean consumption is `r round(mean(man_cars[ , 1]),2)` mpg ± `r round(sd(man_cars[ , 1]),2)`
+For cars with manual transmission, the mean consumption is `r round(mean(man_cars[ , 1]),2)` mpg ± `r round(sd(man_cars[ , 1]),2)`
 
 ## Modelling
 We are going to create a linear model to predict how different parameters affect consumption, giving particular attention to transmission type.
@@ -90,8 +90,10 @@ coef <- round(mdl_all$coef["am"],2)
 coef_sd <- round(summary(mdl_all)$coefficients["am", 2],2)
 ```
 
-The coefficients for transmission type of the multivariate regression with the chosen model is `r coef` ± `r coef_sd`. Thus, when other parameters are held constant, a car which implements automatic transmission is expected to drive `r coef` extra miles per gallon compared to a similar car with manual transmission. At a 0.95 level of statitical significance, the confidence intervals are `r coef - (2 * coef_sd)` and `r coef + (2 * coef_sd)`
+The coefficients for transmission type of the multivariate regression with the chosen model is `r coef` ± `r coef_sd`. Thus, when other parameters are held constant, a car which implements manual transmission is expected to drive `r coef` extra miles per gallon compared to a similar car with automatic transmission. At a 0.95 level of statitical significance, the confidence intervals are `r coef - (2 * coef_sd)` and `r coef + (2 * coef_sd)`
 As the interval contains zero, statistical significance at this level is thus not reached.
+It is also worth noting how the slope of the regression against weight is different for automatic and manual transmission (figure 3). It can be seen how the overall benefit for manual transmission is dependent within a certain weight range, and that the opposite is true beyond a point (around 2750lbs). 
+Our analysis therefore indicates that in order to predict fuel efficiency, transmission type alone isn't sufficient, and a predictive model which implements further caractheristics of the car is needed.
 Residual analysis and diagnostics do not indicate problems within our model (Figure 4 and 5)
 
 \pagebreak
@@ -109,7 +111,7 @@ ggplot(mtcars, aes( x= am, y = mpg, color = as.factor(am) )) + geom_point()
 Boxplot to visualize the differences in the distribution of the values
 
 ```{r figure2, echo=FALSE, fig.height = 4, fig.width = 6}
-ggplot(mtcars, aes(x=am, y=mpg, group=am)) + geom_boxplot()
+ggplot(mtcars, aes(x=am, y=mpg, group=am)) + geom_boxplot() 
 ```
 
 \pagebreak
@@ -119,7 +121,10 @@ Model showing mpg plotted against the strogest predictor (weight), using color c
 
 ```{r figure3, echo=FALSE,fig.height = 5, fig.width = 7}
 m <- aes(x=wt, y=mpg, color=as.factor(am))
-ggplot(mtcars, mapping=m) + geom_point() + geom_smooth(mapping=m, method= "lm")
+g <- ggplot(mtcars, mapping=m) + geom_point() + geom_smooth(mapping=m, method= "lm")
+g <- g + geom_vline(xintercept = 2.75, linetype="dotted", 
+                color = "blue", size=1.5)
+g
 ```
 
 \pagebreak

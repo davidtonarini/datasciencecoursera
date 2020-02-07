@@ -1,0 +1,139 @@
+---
+title: "Effects on consumption of Automatic or Manual Transmissions"
+author: "David Tonarini"
+date: "03/02/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Executive summary
+
+The effect of transmission on consumption, in Miles(US) / gallon, is analyzed. Data analysis indicates that cars with automatic transmission tend to have lower consumptions, reaching more Miles per gallon compared to cars with manual transmission.
+
+
+## Exploratory analysis
+```{r cars, echo=FALSE}
+auto_cars <- mtcars[mtcars$am == 1, ]
+man_cars <- mtcars[mtcars$am == 0, ]
+n_auto <- dim(auto_cars)[1]
+n_manual <- dim(man_cars)[1]
+n_total = n_auto + n_manual 
+```
+The analysis is done on the dataset *mtcars*, extracted from the 1974 Motor Trend US magazine, which comprises fuel consumption and 10 aspects of automobile design and performance for 32 automobiles (1973–74 models).
+The dataset contains information about `r n_auto` models with automatic transmission, and `r n_manual` models with manual transmission, for a total of `r n_total` models.
+To understand the effect of transmission on consumption, we plotted the datapoints for the mpg of the two groups (Figure 1) and a boxplot with the quartile of the two groups (Figure 2), which suggests an effect of the car's transmission type on consumption.
+For cars with automatic transmission, the mean consumption is `r round(mean(auto_cars[ , 1]),2)` mpg ± `r round(sd(auto_cars[ , 1]),2)`
+For cars with automatic transmission, the mean consumption is `r round(mean(man_cars[ , 1]),2)` mpg ± `r round(sd(man_cars[ , 1]),2)`
+
+## Modelling
+We are going to create a linear model to predict how different parameters affect consumption, giving particular attention to transmission type.
+In order to assess which parameters to include, we checked how each of the variables in the dataset correlates with consumptions.
+
+```{r correlation,  echo=FALSE }
+cor_vector <- numeric(10)
+for ( i in 2:11 ) {
+  cor_vector[i-1] <- cor( mtcars$mpg, mtcars[, i])
+}
+names(cor_vector) <- colnames(mtcars)[-1]
+```
+
+This results in the following correlation vector:
+```{r correlation_output, echo=FALSE }
+cor_vector
+```
+
+As we can see, a few variables in the dataset have a very high correlation with consumption ( |rho| > 0.8 ). These variables and their respective correlations with consumption are Number of cylinders (`r round(cor_vector["cyl"],2)`), Displacement (`r round(cor_vector["disp"],2)`), Weight (`r round(cor_vector["wt"],2)`). On the other hand, these variables are also highly correlated one with an other, so they may not be all useful predictors within a linear model.
+The correlation of transmission type with consumption is `r round(cor_vector["am"],2)`, suggesting that its effect as a predictor is less than other variables.
+
+Eight different linear models are tested. The first one uses only transmission type as a predictor. 
+```{r models_a, echo = FALSE }
+mdl_single <- lm(mpg ~ am, mtcars)
+```
+
+The next three add to the model one of the three variables which are the most correlated to consumption. 
+```{r models_b, echo = FALSE }
+mdl_am_1 <- lm(mpg ~ am + wt, mtcars)
+mdl_am_2 <- lm(mpg ~ am + disp, mtcars)
+mdl_am_3 <- lm(mpg ~ am + cyl, mtcars)
+```
+
+The following two progressively add the three most highly correlated variables to the model. 
+
+```{r models_c, echo = FALSE }
+mdl_am_4 <- lm(mpg ~ am + wt + disp, mtcars)
+mdl_am_5 <- lm(mpg ~ am + wt + cyl, mtcars)
+mdl_am_6 <- lm(mpg ~ am + wt + disp + cyl, mtcars)
+```
+
+Finally, the last model uses all the other variables in the dataset to predict mpg.
+```{r models_d, echo = FALSE }
+mdl_all <- lm(mpg ~ ., mtcars)
+```
+
+We run an aNova to compare the models, which results in the following:
+
+```{r anova, echo = FALSE }
+anova(mdl_single, mdl_am_1, mdl_am_2, mdl_am_3, mdl_am_4, mdl_am_5, mdl_am_6, mdl_all)
+```
+
+The results indicate that the main benefit was obtained by including in the regression the effect of weight, which was the most thighly correlated variable.
+Adding further variables to the model had a lesser impact, but still helped to progressively reduce the Residual Sum of Squares. The simple model including all variables was found to be best, so we will choose this one, and observe the effect of transmission type on consumption from within this model.
+
+## Results
+
+```{r summary, echo = FALSE }
+# summary(mdl_all)
+coef <- round(mdl_all$coef["am"],2)
+coef_sd <- round(summary(mdl_all)$coefficients["am", 2],2)
+```
+
+The coefficients for transmission type of the multivariate regression with the chosen model is `r coef` ± `r coef_sd`. Thus, when other parameters are held constant, a car which implements automatic transmission is expected to drive `r coef` extra miles per gallon compared to a similar car with manual transmission. At a 0.95 level of statitical significance, the confidence intervals are `r coef - (2 * coef_sd)` and `r coef + (2 * coef_sd)`
+As the interval contains zero, statistical significance at this level is thus not reached.
+Residual analysis and diagnostics do not indicate problems within our model (Figure 4 and 5)
+
+\pagebreak
+
+# Appendixes
+## Figure 1
+Distribution of the values
+
+```{r figure1, echo=FALSE, fig.height = 3, fig.width = 5}
+library(ggplot2)
+ggplot(mtcars, aes( x= am, y = mpg, color = as.factor(am) )) + geom_point()
+```
+
+## Figure 2
+Boxplot to visualize the differences in the distribution of the values
+
+```{r figure2, echo=FALSE, fig.height = 4, fig.width = 6}
+ggplot(mtcars, aes(x=am, y=mpg, group=am)) + geom_boxplot()
+```
+
+\pagebreak
+
+## Figure 3
+Model showing mpg plotted against the strogest predictor (weight), using color code for transmission type, and showing our chosen linear model with its confidence interval
+
+```{r figure3, echo=FALSE,fig.height = 5, fig.width = 7}
+m <- aes(x=wt, y=mpg, color=as.factor(am))
+ggplot(mtcars, mapping=m) + geom_point() + geom_smooth(mapping=m, method= "lm")
+```
+
+\pagebreak
+
+## Figure 4
+Plot of fitted values vs residuals
+
+```{r figure4, echo=FALSE,fig.height = 3, fig.width = 5}
+plot(mdl_all, which=1)
+```
+
+## Figure 5
+Scale-Location plot for analysis of standardized residuals
+
+```{r figure6, echo=FALSE,fig.height = 3, fig.width = 5}
+plot(mdl_all, which=3)
+```

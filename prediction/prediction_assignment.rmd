@@ -48,12 +48,6 @@ source('exploratory_analysis.r')
 cor <- tt_correlation_matrix( training, "classe")
 head(cor)
 
-  
-
-
-    
-# X + pitch_forearm + magnet_arm_x +magnet_belt_y + magnet_arm_y + accel_arm_x + accel_forearm_x +magnet_forearm_x + magnet_belt_z + pitch_arm + total_accel_forearm + magnet_arm_z + magnet_dumbbell_z + total_accel_arm + accel_dumbbell_x + cvtd_timestamp + magnet_forearm_y
-
 ```
 
 This indicates that most variables aren't very high correlated with the "classe" parameter. On the other hand, the variable X is very strongly correlated. We can also see how the relationship isn't dependent on one specific user.

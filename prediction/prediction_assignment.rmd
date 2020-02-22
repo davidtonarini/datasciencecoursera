@@ -1,0 +1,118 @@
+---
+title: "Prediction assignment"
+author: "David Tonarini"
+date: "19/02/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Modelling quality of human activity
+
+Human activity recognition research has traditionally focused on a quantitative assesment of different activities, i.e. to predict "which" activity was performed, "how much", and so on. 
+This analysis focuses on the creation of a model to make qualitative assesment of human activity, in the context of Weight Lifting. 
+
+The used dataset collected data about six young health participants whoe performed one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different fashions: one correct, and four common mistakes. 
+Data are assigned to a class based on the execution: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E).
+
+This is the variable "classe" of the dataset. I am going to do some exploratory analysis and build a prediction model based on this dataset. 
+
+These parameters are used to load the dataset, and the caret package is used to split the data into a training and validation section. And additional dataset of 20 test cases is also loaded and put aside. At the end of the analysis, the machine learning algorithm will be applied once to the test cases. 
+
+```{r prepare }
+
+#prepare libraries
+library(caret)
+library(ggplot2)
+set.seed(666);
+
+data <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv")
+testing_data <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv")
+
+indexes = createDataPartition( data$classe, p = 0.6, list=FALSE)
+
+training <- data[ indexes, ]
+validation <- data[ -indexes, ]
+
+```
+
+
+## Exploratory data analysis
+
+To have a first glance at the dataset I run a list of correlation of each variable of the dataset against the "classe" variable to predict. 
+
+```{r cor}
+source('exploratory_analysis.r')
+cor <- tt_correlation_matrix( training, "classe")
+head(cor)
+
+  
+
+
+    
+# X + pitch_forearm + magnet_arm_x +magnet_belt_y + magnet_arm_y + accel_arm_x + accel_forearm_x +magnet_forearm_x + magnet_belt_z + pitch_arm + total_accel_forearm + magnet_arm_z + magnet_dumbbell_z + total_accel_arm + accel_dumbbell_x + cvtd_timestamp + magnet_forearm_y
+
+```
+
+This indicates that most variables aren't very high correlated with the "classe" parameter. On the other hand, the variable X is very strongly correlated. We can also see how the relationship isn't dependent on one specific user.
+```{r plot_x, echo=FALSE}
+q <- qplot(X, classe, color=user_name, data=training)
+```
+It is worth nothing that the dataset contains plenty NA values.
+
+```{r na}
+full_rows <- training[ complete.cases(training), ]
+
+```
+
+
+I tried restricting the dataset to only complete cases for a better analysis, but doing so results in a dataset of only `r dim(full_rows)[1]` cases, too small to be used for the machine learning algorythm. 
+
+
+
+## Creating the machine learning algorythm
+
+Given the above considerations, I opted for a model. I have chosen a prediction with trees with a 10-fold cross-validation. I included in the model the predictors which had a correlation higher than 0.1 with the variable "classe", thus dropping out most of the variables in the dataset and, in particular, those columns with plenty of missing data.
+
+```{r model}
+
+fitControl <- trainControl(## 10-fold CV
+                           method = "repeatedcv",
+                           number = 10,
+                           ## repeated ten times
+                           repeats = 10)
+
+modelFit <- train(classe ~ X + pitch_forearm + magnet_arm_x +magnet_belt_y + magnet_arm_y + accel_arm_x + accel_forearm_x +magnet_forearm_x + magnet_belt_z + pitch_arm + total_accel_forearm + magnet_arm_z + magnet_dumbbell_z + total_accel_arm + accel_dumbbell_x + magnet_forearm_y, data=training, method="rpart", trControl = fitControl)
+
+modelFit
+```
+
+I applied the model to predict the data set apart for validation. The accuracy on our model was 66%
+Different models could be reaching better predictive outcomes, but this model has the advantage of low computational demand. Further analysis on the data is however recommended to tune the model.
+Here are the results of the confusion matrix:
+
+```{r model_analysis, echo = FALSE }
+predictions <- predict(modelFit, newdata = validation)
+
+#analysis of results
+confusionMatrix ( predict(modelFit, newdata = validation) , validation$classe)
+
+
+```
+
+
+## Application to the test cases
+
+The model is applied to the 20 test cases. According to the model, all the 20 sample cases should fall into class A. 
+
+```{r test_cases, echo = FALSE}
+
+test_cases <- predict(modelFit, newdata = testing_data)
+summary(test_cases)
+
+#print roc of the model based on sensitivyt and specificity table 
+#https://www.coursera.org/learn/practical-machine-learning/lecture/OeEpW/receiver-operating-characteristic
+
+```

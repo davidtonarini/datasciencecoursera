@@ -28,85 +28,116 @@ library(caret)
 library(ggplot2)
 set.seed(666);
 
-data <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv")
-testing_data <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv")
+training <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv")
+testing <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv")
 
-indexes = createDataPartition( data$classe, p = 0.6, list=FALSE)
-
-training <- data[ indexes, ]
-validation <- data[ -indexes, ]
 
 ```
 
 
 ## Exploratory data analysis
 
-To have a first glance at the dataset I run a list of correlation of each variable of the dataset against the "classe" variable to predict. 
-
-```{r cor}
-source('exploratory_analysis.r')
-cor <- tt_correlation_matrix( training, "classe")
-head(cor)
-
-```
-
-This indicates that most variables aren't very high correlated with the "classe" parameter. On the other hand, the variable X is very strongly correlated. We can also see how the relationship isn't dependent on one specific user.
-```{r plot_x, echo=FALSE}
-q <- qplot(X, classe, color=user_name, data=training)
-```
-It is worth nothing that the dataset contains plenty NA values.
-
 ```{r na}
 full_rows <- training[ complete.cases(training), ]
-
 ```
 
 
-I tried restricting the dataset to only complete cases for a better analysis, but doing so results in a dataset of only `r dim(full_rows)[1]` cases, too small to be used for the machine learning algorythm. 
+I tried restricting the dataset to only complete cases for a better analysis, but doing so results in a dataset of only `r dim(full_rows)[1]` cases. 
+
+Therefore, I decided to deal with the missing values column wise. Various columns contain almost all NAs. As such, I selected the columns where the NAs make 90% or more of the values, and excluded them from the analysis.
+
+Additionally, with a first glance at the dataset we can notice that multiple columns hold informations about the user, the timestamp, or other details which are irrelavent to the prediction algorythm.
+All these useless columns will be excluded first.
 
 
+```{r cleaning_data}
+#Irrelevant columns
+useless_cols <- c("X", "user_name", "raw_timestamp_part_1", 
+    "raw_timestamp_part_2","cvtd_timestamp","new_window", "num_window") 
+#Missing values
+row_count <- dim(training)[1]
+for (i in 8:160) {
+  #check amount of NAs in that columns
+  na_sum <- sum(is.na(training[,i]))
+  if (na_sum/row_count > 0.9 ) {
+    useless_cols <- c(useless_cols, colnames(training)[i])
+  } 
+}
 
-## Creating the machine learning algorythm
 
-Given the above considerations, I opted for a model. I have chosen a prediction with trees with a 10-fold cross-validation. I included in the model the predictors which had a correlation higher than 0.1 with the variable "classe", thus dropping out most of the variables in the dataset and, in particular, those columns with plenty of missing data.
-
-```{r model}
-
-fitControl <- trainControl(## 10-fold CV
-                           method = "repeatedcv",
-                           number = 10,
-                           ## repeated ten times
-                           repeats = 10)
-
-modelFit <- train(classe ~ X + pitch_forearm + magnet_arm_x +magnet_belt_y + magnet_arm_y + accel_arm_x + accel_forearm_x +magnet_forearm_x + magnet_belt_z + pitch_arm + total_accel_forearm + magnet_arm_z + magnet_dumbbell_z + total_accel_arm + accel_dumbbell_x + magnet_forearm_y, data=training, method="rpart", trControl = fitControl)
-
-modelFit
-```
-
-I applied the model to predict the data set apart for validation. The accuracy on our model was 66%
-Different models could be reaching better predictive outcomes, but this model has the advantage of low computational demand. Further analysis on the data is however recommended to tune the model.
-Here are the results of the confusion matrix:
-
-```{r model_analysis, echo = FALSE }
-predictions <- predict(modelFit, newdata = validation)
-
-#analysis of results
-confusionMatrix ( predict(modelFit, newdata = validation) , validation$classe)
-
+#remove them
+training <- training[ , !(names(training) %in% useless_cols)]
+testing <- testing[ , !(names(testing) %in% useless_cols)]
 
 ```
+
+This resulted in removing `r length(useless_cols)` columns, leaving use with a dataset with `r dim(training)[2] -1 ` potential predictor aside from the "classe" variable we are interested into.
+
+## Pre-processing
+
+I decided to pre-process the data with Principal Component Analysis. By default, the PCA function in caret retains enough columns to explain 95% of the observed variance. However, I realised that on my old machine that resulted in an unmanageable computation load. As such, I decided to set the pre-processing to only pick the 10 most influential predictors. 
+This will result in less accuracy, but will make the software computationally light enough to run on my machine.
+
+
+```{r preprocessing}
+#Save classe data for later
+y <- training$classe 
+
+#Prepare data without classe variable
+classe_index <- which( colnames(training)=="classe" )
+x_training <- data.frame( data.matrix( training[ , -classe_index] ) )
+x_testing <- data.frame( data.matrix( testing ) )
+
+# Scaling and centeing
+scaled <- preProcess(x_training, method=c("center","scale"))
+x_training <- predict(scaled, x_training)
+x_testing <- predict(scaled, x_testing)
+
+#Pre-processing with PCA
+pp <- preProcess(x_training, method="pca", pcaComp = 10)
+pca <- predict(pp, x_training)
+pca_test <- predict(pp, x_testing)
+```
+
+
+After this, I used the caret package to divide the dataset in a training and a validation set. For the same reason above, a relatively small part of the dataset is used for training.
+
+```{r modelling}
+indexes = createDataPartition( training$classe, p = 0.1, list=FALSE)
+
+sub_training <- pca[ indexes, ]
+sub_validation <- pca[ -indexes, ]
+
+
+fitControl <- trainControl(method = "cv",
+                            number = 5,
+                            allowParallel = TRUE)
+
+model <- train(sub_training, y[indexes], method='rf', na.action = na.omit, 
+                proxy=TRUE, trControl = fitControl)
+  
+```
+
+
+The created model uses random forest algorithm to create a prediction. I applied the model to predict the data set apart for validation. Results from the confusion matrix is shown below
+
+```{r confusionmatrix}
+confusionMatrix( predict(model, pca[ -indexes, ] ), y [ -indexes ]  )
+```
+
+
+I am considering the accuracy of the model satisfactory, given the restrictions on the design. 
+Different models could be reaching better predictive outcomes, but this model has the advantage of low computational demand. Further analysis on the data is however recommended to tune the model, and a higher number of component and larger portion of training data are recommended on suitable machine.
 
 
 ## Application to the test cases
 
-The model is applied to the 20 test cases. According to the model, all the 20 sample cases should fall into class A. 
+The model is applied to the 20 test cases. The accuracy on the dataset will be analysed after the results are publishd.
 
 ```{r test_cases, echo = FALSE}
 
-test_cases <- predict(modelFit, newdata = testing_data)
-summary(test_cases)
+#test_cases <- predict(model, pca_test)
+#summary(test_cases)
 
-#print roc of the model based on sensitivyt and specificity table 
-#https://www.coursera.org/learn/practical-machine-learning/lecture/OeEpW/receiver-operating-characteristic
 
 ```
